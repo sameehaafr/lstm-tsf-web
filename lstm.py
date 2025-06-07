@@ -161,6 +161,7 @@ def make_prediction(start_date, stop_date):
     for i in range(len(data) - 9):
         sequences.append(data[i:i+10])
     data = np.array(sequences)
+    data = data.reshape(data.shape[0], data.shape[1], 1)  # Reshape to (batch_size, seq_len, input_size)
     data = torch.FloatTensor(data)
     with torch.no_grad():
         yhat = model(data)
