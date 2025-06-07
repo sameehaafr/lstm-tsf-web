@@ -4,14 +4,16 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-streamlit = "*"
-scikit-learn = "*"
-keras = "*"
-tensorflow = "*"
-geopy = "*"
-matplotlib = "*"
-plotly = "*"
-addfips = "*"
+streamlit = "==1.32.0"
+scikit-learn = "==1.4.0"
+keras = "==2.15.0"
+tensorflow = "==2.15.0"
+geopy = "==2.4.1"
+matplotlib = "==3.8.3"
+plotly = "==5.18.0"
+addfips = "==0.4.0"
+setuptools = ">=68.0.0"
+wheel = ">=0.40.0"
 
 [dev-packages]
 
