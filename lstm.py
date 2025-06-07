@@ -118,7 +118,7 @@ def build_lstm(hidden_size, num_layers, dropout):
     return model
 
 def load():
-    model = LSTMModel(input_size=1, hidden_size=50, num_layers=1, dropout=0.6)
+    model = LSTMModel(input_size=1, hidden_size=50, num_layers=2, dropout=0.6)
     model.load_state_dict(torch.load('models/lstm_model_10.pt', weights_only=False))
     model.eval()
     return model
@@ -148,10 +148,19 @@ def make_prediction(start_date, stop_date):
     start_idx = merged[merged[DATE] == start_date].index[0]
     stop_idx = merged[merged[DATE] == stop_date].index[0]
     
+    # Ensure we have enough data points for prediction
+    if stop_idx - start_idx < 10:
+        st.error("Please select a date range with at least 10 days")
+        return None
+    
     model = load()
     #predict
     data = merged[DATA_COL][start_idx:stop_idx].values
-    data = data.reshape(-1, 10, 1)
+    # Create sequences of 10 days for prediction
+    sequences = []
+    for i in range(len(data) - 9):
+        sequences.append(data[i:i+10])
+    data = np.array(sequences)
     data = torch.FloatTensor(data)
     with torch.no_grad():
         yhat = model(data)
@@ -160,14 +169,14 @@ def make_prediction(start_date, stop_date):
     merged['daily_pm10_normalized'] = (merged[DATA_COL] - merged[DATA_COL].mean()) / merged[DATA_COL].std()
     yhat = yhat.numpy().flatten()
     yhat = (yhat - yhat.mean()) / yhat.std()
-    actual = (merged['daily_pm10_normalized'][start_idx:stop_idx]).to_list()
+    actual = (merged['daily_pm10_normalized'][start_idx+9:stop_idx+1]).to_list()
     
     # Create DataFrame with dates
     data = pd.DataFrame({
         'Predicted': yhat,
         'Actual': actual,
         'Difference': np.abs(np.array(yhat) - np.array(actual)),
-        'Date': merged[DATE][start_idx:stop_idx]
+        'Date': merged[DATE][start_idx+9:stop_idx+1]
     })
     return data
 
