@@ -6,8 +6,7 @@ name = "pypi"
 [packages]
 streamlit = "==1.32.0"
 scikit-learn = "==1.4.0"
-keras = "==2.15.0"
-tensorflow = "==2.15.0"
+tensorflow-cpu = "==2.14.0"
 geopy = "==2.4.1"
 matplotlib = "==3.8.3"
 plotly = "==5.18.0"
@@ -18,4 +17,4 @@ wheel = ">=0.40.0"
 [dev-packages]
 
 [requires]
-python_version = "3.10"
+python_version = "3.13"
