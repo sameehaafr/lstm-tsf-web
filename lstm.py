@@ -170,14 +170,21 @@ def make_prediction(start_date, stop_date):
     merged['daily_pm10_normalized'] = (merged[DATA_COL] - merged[DATA_COL].mean()) / merged[DATA_COL].std()
     yhat = yhat.numpy().flatten()
     yhat = (yhat - yhat.mean()) / yhat.std()
-    actual = (merged['daily_pm10_normalized'][start_idx+9:stop_idx+1]).to_list()
+    
+    # Get actual values for the predicted dates
+    actual = merged['daily_pm10_normalized'][start_idx+9:stop_idx+1].values
+    
+    # Ensure arrays have the same length
+    min_len = min(len(yhat), len(actual))
+    yhat = yhat[:min_len]
+    actual = actual[:min_len]
     
     # Create DataFrame with dates
     data = pd.DataFrame({
         'Predicted': yhat,
         'Actual': actual,
-        'Difference': np.abs(np.array(yhat) - np.array(actual)),
-        'Date': merged[DATE][start_idx+9:stop_idx+1]
+        'Difference': np.abs(yhat - actual),
+        'Date': merged[DATE][start_idx+9:start_idx+9+min_len]
     })
     return data
 
