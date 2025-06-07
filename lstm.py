@@ -9,7 +9,6 @@ import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import seaborn as sns
-import h5py
 
 # Set page configuration
 st.set_page_config(
