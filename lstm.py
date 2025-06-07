@@ -118,7 +118,7 @@ def build_lstm(hidden_size, num_layers, dropout):
     return model
 
 def load():
-    model = LSTMModel(input_size=1, hidden_size=50, num_layers=2, dropout=0.6)
+    model = LSTMModel(input_size=1, hidden_size=50, num_layers=1, dropout=0.0)
     model.load_state_dict(torch.load('models/lstm_model_10.pt', weights_only=False))
     model.eval()
     return model
