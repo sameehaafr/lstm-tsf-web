@@ -286,8 +286,25 @@ with tab2:
     """)
     
     model = load()
-    st.markdown("### Model Summary")
-    model.summary(print_fn=lambda x: st.text(x))
+    st.markdown("### Model Architecture")
+    st.markdown("""
+    ```python
+    LSTMModel(
+        (lstm): LSTM(1, 50, batch_first=True, dropout=0.6)
+        (fc): Linear(in_features=50, out_features=1, bias=True)
+    )
+    ```
+    """)
+    
+    st.markdown("### Model Parameters")
+    total_params = sum(p.numel() for p in model.parameters())
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    
+    st.markdown(f"""
+    - Total Parameters: {total_params:,}
+    - Trainable Parameters: {trainable_params:,}
+    - Non-trainable Parameters: {total_params - trainable_params:,}
+    """)
 
 with tab3:
     st.header("Make Predictions")
