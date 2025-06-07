@@ -1,14 +1,10 @@
 import streamlit as st
 import pandas as pd
 from sklearn.metrics import mean_squared_error, mean_absolute_error
-from keras.models import load_model
-from keras.layers import LSTM, Dense, Dropout
-from keras.models import Sequential
 import numpy as np
-import tensorflow as tf
-from numpy import array
+import torch
+import torch.nn as nn
 import time
-from tensorflow.python.keras import regularizers
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -47,6 +43,21 @@ DATA_URLS = ["data/LA_pm10_2020.csv", "data/LA_pm10_2021.csv", "data/LA_pm10_202
 DATE = "Date"
 DATA_COL = "Daily Mean PM10 Concentration"
 
+class LSTMModel(nn.Module):
+    def __init__(self, input_size, hidden_size, num_layers, dropout):
+        super(LSTMModel, self).__init__()
+        self.hidden_size = hidden_size
+        self.num_layers = num_layers
+        self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True, dropout=dropout)
+        self.fc = nn.Linear(hidden_size, 1)
+        
+    def forward(self, x):
+        h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
+        c0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
+        out, _ = self.lstm(x, (h0, c0))
+        out = self.fc(out[:, -1, :])
+        return out
+
 def load_data(url):
     df = pd.read_csv(url)
     df[DATE] = pd.to_datetime(df[DATE]).dt.date
@@ -61,16 +72,15 @@ def merge_data():
     return merged
 
 def split_data(sequence, nsteps):
-	X, y = list(), list()
-	for i in range(len(sequence)):
-		end_ix = i + nsteps
-		if end_ix > len(sequence)-1:
-			break
-		seq_x, seq_y = sequence[i:end_ix], sequence[end_ix]
-		X.append(seq_x)
-		y.append(seq_y)
-	return array(X), array(y)
-
+    X, y = list(), list()
+    for i in range(len(sequence)):
+        end_ix = i + nsteps
+        if end_ix > len(sequence)-1:
+            break
+        seq_x, seq_y = sequence[i:end_ix], sequence[end_ix]
+        X.append(seq_x)
+        y.append(seq_y)
+    return np.array(X), np.array(y)
 
 def input_seq():
     merged = merge_data()
@@ -78,32 +88,39 @@ def input_seq():
     daily_pm10 = daily_pm10[0:len(daily_pm10)-1]
     x_train, y_train = split_data(daily_pm10, 10)
     x_train = x_train.reshape((x_train.shape[0], x_train.shape[1], 1))
-    return x_train, y_train
+    return torch.FloatTensor(x_train), torch.FloatTensor(y_train)
 
-def create_lstm(units, activation, nsteps, nfeatures, reg_input, dropout):
-    model = Sequential()
-    model.add(LSTM(units, activation=activation, input_shape=(nsteps, nfeatures), kernel_regularizer=regularizers.l2(reg_input)))
-    model.add(Dropout(dropout))
-    model.add(Dense(1))
-    model.compile(optimizer='adam', loss='mse', run_eagerly=True)
-    tf.config.run_functions_eagerly(True)
-    tf.data.experimental.enable_debug_mode()
+def create_lstm(hidden_size, num_layers, dropout):
+    model = LSTMModel(input_size=1, hidden_size=hidden_size, num_layers=num_layers, dropout=dropout)
     return model
 
-#50, 'elu', 10, 1, 0.02, 0.6
-def build_lstm(units, activation, nsteps, nfeatures, reg_input, dropout):
+def build_lstm(hidden_size, num_layers, dropout):
     xtrain, ytrain = input_seq()
-    model = create_lstm(units, activation, nsteps, nfeatures, reg_input, dropout)
+    model = create_lstm(hidden_size, num_layers, dropout)
+    criterion = nn.MSELoss()
+    optimizer = torch.optim.Adam(model.parameters())
+    
     time1 = time.perf_counter()
     st.text("model training...")
-    model.fit(xtrain, ytrain, epochs=25, verbose=0)
+    
+    model.train()
+    for epoch in range(25):
+        optimizer.zero_grad()
+        outputs = model(xtrain)
+        loss = criterion(outputs.squeeze(), ytrain)
+        loss.backward()
+        optimizer.step()
+    
     time2 = time.perf_counter()
     st.text("model running time: " + str(time2-time1))
-    model.save('models/lstm_model_11.h5')
+    
+    torch.save(model.state_dict(), 'models/lstm_model_11.pt')
     return model
 
 def load():
-    model = tf.keras.models.load_model('models/lstm_model_10.h5')
+    model = LSTMModel(input_size=1, hidden_size=50, num_layers=1, dropout=0.6)
+    model.load_state_dict(torch.load('models/lstm_model_10.pt'))
+    model.eval()
     return model
 
 def make_prediction(start_date, stop_date):
@@ -133,11 +150,16 @@ def make_prediction(start_date, stop_date):
     
     model = load()
     #predict
-    yhat = model.predict(merged[DATA_COL][start_idx:stop_idx], verbose=0)
+    data = merged[DATA_COL][start_idx:stop_idx].values
+    data = data.reshape(-1, 10, 1)
+    data = torch.FloatTensor(data)
+    with torch.no_grad():
+        yhat = model(data)
+    
     #normalize
     merged['daily_pm10_normalized'] = (merged[DATA_COL] - merged[DATA_COL].mean()) / merged[DATA_COL].std()
+    yhat = yhat.numpy().flatten()
     yhat = (yhat - yhat.mean()) / yhat.std()
-    yhat = np.array(yhat).flatten().tolist()
     actual = (merged['daily_pm10_normalized'][start_idx:stop_idx]).to_list()
     
     # Create DataFrame with dates
