@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import seaborn as sns
+import h5py
 
 # Set page configuration
 st.set_page_config(
@@ -119,7 +120,11 @@ def build_lstm(hidden_size, num_layers, dropout):
 
 def load():
     model = LSTMModel(input_size=1, hidden_size=50, num_layers=1, dropout=0.6)
-    model.load_state_dict(torch.load('models/lstm_model_10.h5'))
+    with h5py.File('models/lstm_model_10.h5', 'r') as f:
+        # Load the weights from the HDF5 file
+        for key in f.keys():
+            if key in model.state_dict():
+                model.state_dict()[key].copy_(torch.from_numpy(f[key][:]))
     model.eval()
     return model
 
